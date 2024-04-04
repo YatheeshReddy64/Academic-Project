@@ -1,0 +1,330 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_ADXL345_U.h>
+#include<LiquidCrystal.h>
+#include <TinyGPS.h>
+static const uint32_t GPSBaud = 9600;
+TinyGPS gps;
+int Ignition_pin = 2;
+int Switch_pin = 3;
+int buttonState;
+int beltState;
+int alcoholValue;
+int Relay = 13;
+int Buzzer = 9;
+const int trigPin1 = 4;
+const int echoPin1 = 5;
+
+const int trigPin2 = 6;
+const int echoPin2 = 7;
+int Alchol_sensor = 10;
+int threshold = 10;
+int threshold1 = 10;
+#define rs 12
+#define en 11
+#define d4 A0
+#define d5 A1
+#define d6 A2
+#define d7 A3
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
+
+float flat;
+float flon;
+String msg;
+void setup() {
+  Serial.begin(9600);
+  lcd.begin(16, 2);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Smart helmet for");
+  lcd.setCursor(0, 1);
+  lcd.print("Accident avoidence");
+  delay(2000);
+
+  pinMode( 2, INPUT_PULLUP);
+  pinMode(3, INPUT_PULLUP);
+  pinMode(trigPin1, OUTPUT);
+  pinMode(echoPin1, INPUT);
+  pinMode(trigPin2, OUTPUT);
+  pinMode(echoPin2, INPUT);
+  pinMode(Alchol_sensor, INPUT);
+  pinMode(Relay, OUTPUT);
+  pinMode(Buzzer, OUTPUT);
+  digitalWrite(Relay, HIGH);
+  digitalWrite( Buzzer, LOW);
+  
+  digitalWrite(3, LOW);
+  if (!accel.begin()) {
+    Serial.println("Could not find a valid ADXL345 sensor, check wiring!");
+    while (1);
+  }
+}
+void loop()
+{
+  sensors_event_t event;
+  accel.getEvent(&event);
+  //  lcd.clear();
+  //  lcd.setCursor(0,0);
+  //  lcd.print("buttonState: ");
+  //  lcd.setCursor(0,1);
+  //  lcd.print(buttonState);
+  //  delay(2000);
+  //   lcd.clear();
+  //   lcd.setCursor(0,0);
+  //   lcd.print(" beltState: ");
+  //   lcd.setCursor(0,1);
+  //   lcd.print( beltState);
+  //    delay(2000);
+  //   lcd.clear();
+  //   lcd.setCursor(0,0);
+  //   lcd.print( "alcoholValue: ");
+  //   lcd.setCursor(0,1);
+  //   lcd.print( alcoholValue);
+  //    delay(2000);
+
+  int buttonState = digitalRead( 2);
+  int  beltState = digitalRead(3);
+  int  alcoholValue = digitalRead(Alchol_sensor);
+
+  long duration1, distance1;
+  long duration2, distance2;
+
+  digitalWrite(trigPin1, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin1, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin1, LOW);
+
+  duration1 = pulseIn(echoPin1, HIGH);
+  distance1 = duration1 * 0.034 / 2; // Calculate distance in cm
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("distance1:");
+  lcd.setCursor(0, 1);
+  lcd.print(distance1);
+  delay(1000);
+  digitalWrite(trigPin2, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin2, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin2, LOW);
+
+  duration2 = pulseIn(echoPin2, HIGH);
+  distance2 = duration2 * 0.034 / 2; // Calculate distance in cm
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("distance2:");
+  lcd.setCursor(0, 1);
+  lcd.print(distance2);
+  delay(1000);//to read key state
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(buttonState);
+  delay(1000);
+  if (buttonState == 1)
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("ignition key on");
+    Serial.println(buttonState);
+    delay(1000);
+
+    if ( beltState == 0)
+    {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("weared helmet");
+      delay(1000);
+      //digitalWrite( Buzzer, HIGH);
+      // digitalWrite(Relay,LOW);
+
+
+
+      lcd.setCursor(0, 1);
+      lcd.print(alcoholValue);
+      delay(1000);
+      //      digitalWrite( Buzzer, LOW);
+      if (alcoholValue == 1)
+      { digitalWrite(Relay, LOW);
+        lcd.clear();
+
+        lcd.setCursor(0, 0);
+        lcd.print("NO alchol detected");
+        lcd.setCursor(0, 1);
+        lcd.print(alcoholValue);
+        delay(1000);
+//        /if((alcoholValue==1) && ( beltState == 0)&& (buttonState == 1))
+//        {
+//        digitalWrite(Relay, LOW);
+//        
+//      }
+      }
+      else{
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("alchol detected");
+      delay(1000);
+       digitalWrite(Relay, HIGH);
+    }
+    }
+    else{
+   
+   
+    lcd.setCursor(0, 1);
+    lcd.print("wear helmet");
+    delay(1000);
+    digitalWrite( Buzzer, HIGH);
+     digitalWrite(Relay, HIGH);
+
+  }
+  }
+  else {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("check all");
+    digitalWrite(Relay, HIGH);
+  }
+
+
+  if (distance1 < threshold) {
+    digitalWrite( Buzzer, HIGH);
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("vehicle detected");
+    lcd.setCursor(0, 1);
+    lcd.print("forward");
+    delay(1000);
+  } else if (distance2 < threshold1) {
+    digitalWrite( Buzzer, HIGH);
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("vehicle detected");
+    lcd.setCursor(0, 1);
+    lcd.print("backward");
+    delay(1000);
+
+  }
+  else
+  {
+//    digitalWrite( Relay, HIGH);
+
+  }
+
+
+  bool newData = false;
+  unsigned long chars;
+  unsigned short sentences, failed;
+
+  // For one second we parse GPS data and report some key values
+  for (unsigned long start = millis(); millis() - start < 1000;)
+  {
+    while (Serial.available())
+    {
+      char c = Serial.read();
+      // Serial.write(c); // uncomment this line if you want to see the GPS data flowing
+      if (gps.encode(c)) // Did a new valid sentence come in?
+        newData = true;
+    }
+  }
+
+  if (newData)
+  {
+    //    float flat, flon;
+    unsigned long age;
+    gps.f_get_position(&flat, &flon, &age);
+    Serial.println("LAT=");
+    Serial.println(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
+    //    Serial.println(flat);
+    Serial.println(" LON=");
+    Serial.println(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
+    //    Serial.println(flon);
+    delay(2000);
+  }
+  if (event.acceleration.x > 7 || event.acceleration.x < -7)
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("ACCIDENT ALERT X");
+    delay(1000);
+    digitalWrite(Relay, HIGH);
+    digitalWrite( Buzzer, HIGH);
+    delay(2000);
+    digitalWrite( Buzzer, LOW);
+    msg = "ACCIDENT ALERT";
+    SendMessage();
+    delay(5000);
+  }
+  else if (event.acceleration.y > 7 || event.acceleration.y < -7 )
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("ACCIDENT ALERT Y");
+    delay(1000);
+    digitalWrite(Relay, HIGH);
+    digitalWrite( Buzzer, HIGH);
+    delay(4000);
+    digitalWrite( Buzzer, LOW);
+    msg = "ACCIDENT ALERT";
+    SendMessage();
+    delay(5000);
+  }
+  else
+  {
+    digitalWrite( Buzzer, LOW);
+    //    digitalWrite(Relay, LOW);
+  }
+}
+
+
+
+void SendMessage() {
+  Serial.println("AT");               //test check communication with gsm module
+  delay(500);
+  Serial.println("ATE0");             //ATE0: Switch echo off. ATE1: Switch echo on.
+  delay(500);
+  Serial.println("AT+CMGF=1");        //set sms text mode
+  delay(500);
+  Serial.println("AT+CMGS=\"+916309808037\"\r");  //send specfic number
+  delay(500);
+  Serial.println("LOCATION");
+  // Convert flat and flon to 6-digit precision strings
+  String flatStr = String(flat, 6);
+  String flonStr = String(flon, 6);
+
+  Serial.println(msg);
+  Serial.println("This is location click to direction");
+  Serial.println("http://www.google.com/maps/place/" + flatStr + "," + flonStr);    //link
+
+  delay(500);
+  Serial.write(26);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Message sent..");
+  Serial.println("Message sent..");
+  delay(1000);
+
+  // Clear the LCD and display latitude and longitude
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("LAT : ");
+  lcd.print(flatStr);
+  lcd.setCursor(0, 1);
+  lcd.print("LNG : ");
+  lcd.print(flonStr);
+}
+//int getDistance(int trigPin, int echoPin) {
+//  digitalWrite(trigPin, LOW);
+//  delayMicroseconds(2);
+//  digitalWrite(trigPin, HIGH);
+//  delayMicroseconds(10);
+//  digitalWrite(trigPin, LOW);
+//
+//  long duration = pulseIn(echoPin, HIGH);
+//  int distance = duration * 0.034 / 2; // Speed of sound is 34cm/ms
+//
+//  return distance;
+//}
+
+// Clear the LCD and display latitude and longitude
